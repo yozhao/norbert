@@ -14,7 +14,7 @@ class NorbertProject(info: ProjectInfo) extends ParentProject(info) with IdeaPlu
     override def packageToPublishActions = super.packageToPublishActions ++ Seq(packageDocs, packageSrc)
 
     val sourceArtifact = Artifact(artifactID, "src", "jar", Some("sources"), Nil, None)
-    val docsArtifact = Artifact(artifactID, "docs", "jar", Some("javadocs"), Nil, None)
+//    val docsArtifact = Artifact(artifactID, "docs", "jar", Some("javadocs"), Nil, None)
 
   }
 
