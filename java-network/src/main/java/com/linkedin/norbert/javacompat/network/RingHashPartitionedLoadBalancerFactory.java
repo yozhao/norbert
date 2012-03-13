@@ -15,6 +15,7 @@
  */
 package com.linkedin.norbert.javacompat.network;
 
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.log4j.Logger;
 import com.linkedin.norbert.cluster.InvalidClusterException;
@@ -41,13 +42,21 @@ public class RingHashPartitionedLoadBalancerFactory implements PartitionedLoadBa
     _hashingStrategy = hashingStrategy;
   }
 
-
   public RingHashPartitionedLoadBalancerFactory(int numberOfReplicas){
       this(numberOfReplicas,new HashFunction.MD5HashFunction());
   }
   public PartitionedLoadBalancer<Integer> newLoadBalancer(Set<Endpoint> endpoints) throws InvalidClusterException
   {
     return new RingHashPartitionedLoadBalancer(_numberOfReplicas, endpoints, _hashingStrategy);
+  }
+
+  @Override
+  public Integer getNumPartitions(Set<Endpoint> endpoints) {
+    Set<Integer> partitionIds = new HashSet<Integer>();
+    for(Endpoint endpoint : endpoints) {
+      partitionIds.addAll(endpoint.getNode().getPartitionIds());
+    }
+    return partitionIds.size();
   }
 
   private final static double mean(int[] population)

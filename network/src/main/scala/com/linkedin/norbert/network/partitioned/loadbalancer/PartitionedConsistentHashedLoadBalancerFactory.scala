@@ -31,10 +31,18 @@ class PartitionedConsistentHashedLoadBalancerFactory[PartitionedId](numPartition
                                                                     hashFn: PartitionedId => Int,
                                                                     endpointHashFn: String => Int,
                                                                     serveRequestsIfPartitionMissing: Boolean)
-  extends DefaultPartitionedLoadBalancerFactory[PartitionedId](numPartitions, serveRequestsIfPartitionMissing) {
+  extends DefaultPartitionedLoadBalancerFactory[PartitionedId](serveRequestsIfPartitionMissing) {
 
   def this(slicesPerEndpoint: Int, hashFn: PartitionedId => Int, endpointHashFn: String => Int, serveRequestsIfPartitionMissing: Boolean) = {
     this(-1, slicesPerEndpoint, hashFn, endpointHashFn, serveRequestsIfPartitionMissing)
+  }
+
+  protected def getNumPartitions(endpoints: Set[Endpoint]) = {
+    if (numPartitions == -1) {
+      endpoints.flatMap(_.node.partitionIds).size
+    } else {
+      numPartitions
+    }
   }
 
   protected def calculateHash(id: PartitionedId) = hashFn(id)

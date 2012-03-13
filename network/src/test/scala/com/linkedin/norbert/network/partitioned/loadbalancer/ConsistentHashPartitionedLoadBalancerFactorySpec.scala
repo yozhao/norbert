@@ -26,8 +26,10 @@ class ConsistentHashPartitionedLoadBalancerFactorySpec extends Specification {
   case class EId(id: Int)
   implicit def eId2ByteArray(eId: EId): Array[Byte] = BigInt(eId.id).toByteArray
 
-  class EIdDefaultLoadBalancerFactory(numPartitions: Int, serveRequestsIfPartitionMissing: Boolean) extends DefaultPartitionedLoadBalancerFactory[EId](numPartitions, serveRequestsIfPartitionMissing) {
+  class EIdDefaultLoadBalancerFactory(numPartitions: Int, serveRequestsIfPartitionMissing: Boolean) extends DefaultPartitionedLoadBalancerFactory[EId](serveRequestsIfPartitionMissing) {
     protected def calculateHash(id: EId) = HashFunctions.fnv(id)
+
+    protected def getNumPartitions(endpoints: Set[Endpoint]) = numPartitions
   }
 
   def toEndpoints(nodes: Set[Node]) = nodes.map(n => new Endpoint {
@@ -37,12 +39,6 @@ class ConsistentHashPartitionedLoadBalancerFactorySpec extends Specification {
     })
 
   val loadBalancerFactory = new EIdDefaultLoadBalancerFactory(5, true)
-
-  "DefaultPartitionedLoadBalancerFactory" should {
-    "return the correct partition id" in {
-      loadBalancerFactory.partitionForId(EId(1210)) must be_==(0)
-    }
-  }
 
   "ConsistentHashPartitionedLoadBalancer" should {
     "nextNode returns the correct node for 1210" in {

@@ -19,25 +19,34 @@ package javacompat
 package network
 
 import com.linkedin.norbert.network.partitioned.loadbalancer.{DefaultPartitionedLoadBalancerFactory => SConsistentHashPartitionedLoadBalancerFactory}
-import java.util.Set
 import EndpointConversions._
 import cluster.Node
+import com.linkedin.norbert.network.common.{Endpoint => SEndpoint}
+import java.util.{Set => JSet}
 
 abstract class ConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
   def this(numPartitions: Int) = this(numPartitions, true)
 
-  val underlying = new SConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPartitions, serveRequestsIfPartitionMissing) {
+  val underlying = new SConsistentHashPartitionedLoadBalancerFactory[PartitionedId](serveRequestsIfPartitionMissing) {
     protected def calculateHash(id: PartitionedId) = hashPartitionedId(id)
+
+    protected def getNumPartitions(endpoints: Set[SEndpoint]) = {
+      if (numPartitions == -1) {
+        endpoints.flatMap(_.getNode.getPartitionIds).size
+      } else {
+        numPartitions
+      }
+    }
   }
 
-  def newLoadBalancer(endpoints: Set[Endpoint]): PartitionedLoadBalancer[PartitionedId] = new PartitionedLoadBalancer[PartitionedId]{
+  def newLoadBalancer(endpoints: JSet[Endpoint]): PartitionedLoadBalancer[PartitionedId] = new PartitionedLoadBalancer[PartitionedId] {
     val loadBalancer = underlying.newLoadBalancer(endpoints)
 
     def nextNode(id: PartitionedId) = loadBalancer.nextNode(id).getOrElse(null)
 
     def nodesForOneReplica() = {
       val map = loadBalancer.nodesForOneReplica
-      val jMap = new java.util.HashMap[Node, Set[java.lang.Integer]]()
+      val jMap = new java.util.HashMap[Node, JSet[java.lang.Integer]]()
       map.foreach { case (node, partitions) =>
         val set = new java.util.HashSet[java.lang.Integer]
         partitions.foreach(set.add(_))

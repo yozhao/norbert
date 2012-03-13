@@ -33,4 +33,12 @@ public interface PartitionedLoadBalancerFactory<PartitionedId> {
    * it is impossible to create a <code>LoadBalancer</code>
    */
   PartitionedLoadBalancer<PartitionedId> newLoadBalancer(Set<Endpoint> endpoints) throws InvalidClusterException;
+
+  /**
+   * Returns the number of partitions for a given set of endpoints. Can either use a statically configured set of
+   * endpoints or take the maximum from zookeeper
+   * @param endpoints
+   * @return
+   */
+  Integer getNumPartitions(Set<Endpoint> endpoints);
 }

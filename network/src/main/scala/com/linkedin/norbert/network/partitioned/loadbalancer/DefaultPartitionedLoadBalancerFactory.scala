@@ -25,11 +25,23 @@ import common.Endpoint
  * This class is intended for applications where there is a mapping from partitions -> servers able to respond to those requests. Requests are round-robined
  * between the partitions
  */
-abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
+abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
   def newLoadBalancer(endpoints: Set[Endpoint]): PartitionedLoadBalancer[PartitionedId] = new PartitionedLoadBalancer[PartitionedId] with DefaultLoadBalancerHelper {
+    val numPartitions: Int = getNumPartitions(endpoints)
     val partitionToNodeMap = generatePartitionToNodeMap(endpoints, numPartitions, serveRequestsIfPartitionMissing)
 
     def nextNode(id: PartitionedId) = nodeForPartition(partitionForId(id))
+
+    /**
+     * Calculates the id of the partition on which the specified <code>Id</code> resides.
+     *
+     * @param id the <code>Id</code> to map to a partition
+     *
+     * @return the id of the partition on which the <code>Id</code> resides
+     */
+    def partitionForId(id: PartitionedId): Int = {
+      calculateHash(id).abs % numPartitions
+    }
 
     def nodesForOneReplica = {
       partitionToNodeMap.keys.foldLeft(Map.empty[Node, Set[Int]]) { (map, partition) =>
@@ -46,16 +58,6 @@ abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](numPartition
     }
   }
 
-  /**
-   * Calculates the id of the partition on which the specified <code>Id</code> resides.
-   *
-   * @param id the <code>Id</code> to map to a partition
-   *
-   * @return the id of the partition on which the <code>Id</code> resides
-   */
-  def partitionForId(id: PartitionedId): Int = {
-    calculateHash(id).abs % numPartitions
-  }
 
   /**
    * Hashes the <code>Id</code> provided. Users must implement this method. The <code>HashFunctions</code>
@@ -66,4 +68,6 @@ abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](numPartition
    * @return the hashed value
    */
   protected def calculateHash(id: PartitionedId): Int
+
+  protected def getNumPartitions(endpoints: Set[Endpoint]): Int
 }
