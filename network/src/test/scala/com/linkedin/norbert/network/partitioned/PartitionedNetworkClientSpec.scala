@@ -398,7 +398,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
           val lb = new PartitionedLoadBalancer[Int] {
             val iter = PartitionedNetworkClientSpec.this.nodes.iterator
             def nextNode(id: Int) = Some(iter.next)
-            def nodesForOneReplica = null
+            def nodesForOneReplica(id: Int) = null
           }
           val loadBalancerFactory = mock[PartitionedLoadBalancerFactory[Int]]
           val clusterIoClient = new ClusterIoClient {
@@ -437,7 +437,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
             idx = (idx + 1) % nodeIS.size
             Some(nodeIS(idx))
           }
-          def nodesForOneReplica = null
+          def nodesForOneReplica(id: Int) = null
         }
         val loadBalancerFactory = mock[PartitionedLoadBalancerFactory[Int]]
         val clusterIoClient = new ClusterIoClient {
@@ -483,7 +483,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
             count += 1
             Some(ret)
           }
-          def nodesForOneReplica = null
+          def nodesForOneReplica(id: Int) = null
         }
         val loadBalancerFactory = mock[PartitionedLoadBalancerFactory[Int]]
         val clusterIoClient = new ClusterIoClient {
@@ -522,7 +522,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
         val lb = new PartitionedLoadBalancer[Int] {
           val iter = PartitionedNetworkClientSpec.this.nodes.iterator
           def nextNode(id: Int) = Some(iter.next)
-          def nodesForOneReplica = null
+          def nodesForOneReplica(id: Int) = null
         }
         val loadBalancerFactory = mock[PartitionedLoadBalancerFactory[Int]]
         val clusterIoClient = new ClusterIoClient {
@@ -555,7 +555,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
         val lb = new PartitionedLoadBalancer[Int] {
           val iter = PartitionedNetworkClientSpec.this.nodes.iterator
           def nextNode(id: Int) = Some(iter.next)
-          def nodesForOneReplica = null
+          def nodesForOneReplica(id: Int) = null
         }
         val loadBalancerFactory = mock[PartitionedLoadBalancerFactory[Int]]
         val clusterIoClient = new ClusterIoClient {
@@ -587,7 +587,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
         val lb = new PartitionedLoadBalancer[Int] {
           val iter = PartitionedNetworkClientSpec.this.nodes.iterator
           def nextNode(id: Int) = if (iter.hasNext) Some(iter.next) else None
-          def nodesForOneReplica = null
+          def nodesForOneReplica(id: Int) = null
         }
         val loadBalancerFactory = mock[PartitionedLoadBalancerFactory[Int]]
         val clusterIoClient = new ClusterIoClient {

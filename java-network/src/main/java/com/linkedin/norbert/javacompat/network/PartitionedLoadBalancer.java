@@ -40,6 +40,6 @@ public interface PartitionedLoadBalancer<PartitionedId> {
    *
    * @return the set of <code>Nodes</code> to broadcast the next message to a replica to
    */
-  Map<Node, Set<Integer>> nodesForOneReplica();
+  Map<Node, Set<Integer>> nodesForOneReplica(PartitionedId id);
 
 }

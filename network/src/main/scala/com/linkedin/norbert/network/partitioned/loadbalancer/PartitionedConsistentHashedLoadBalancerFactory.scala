@@ -77,12 +77,33 @@ class PartitionedConsistentHashedLoadBalancerFactory[PartitionedId](numPartition
 
 class PartitionedConsistentHashedLoadBalancer[PartitionedId](numPartitions: Int, wheels: Map[Int, TreeMap[Int, Endpoint]], hashFn: PartitionedId => Int, serveRequestsIfPartitionMissing: Boolean = true)
         extends PartitionedLoadBalancer[PartitionedId] with DefaultLoadBalancerHelper {
-  val random = new scala.util.Random
-  import collection.JavaConversions._
+  import scala.collection.JavaConversions._
   val endpoints = wheels.values.flatMap(_.values).toSet
   val partitionToNodeMap = generatePartitionToNodeMap(endpoints, numPartitions, serveRequestsIfPartitionMissing)
 
-  def nodesForOneReplica = {
+  def nodesForOneReplica(id: PartitionedId) = {
+    if (id == null) {
+      nodesForOneReplica0
+    } else {
+      val hash = hashFn(id)
+
+      wheels.foldLeft(Map.empty[Node, Set[Int]]) { case (accumulator, (partitionId, wheel)) =>
+        val endpoint = PartitionUtil.searchWheel(wheel, hash, (e: Endpoint) => e.canServeRequests)
+        if(endpoint.isDefined) {
+          val node = endpoint.get.node
+          val partitions = accumulator.getOrElse(node, Set.empty[Int]) + partitionId
+          accumulator + (node -> partitions)
+        } else if(serveRequestsIfPartitionMissing) {
+          log.warn("Partition %s is unavailable, attempting to continue serving requests to other partitions."
+            .format(partitionId))
+          accumulator
+        } else
+            throw new InvalidClusterException("Partition %s is unavailable, cannot serve requests.".format(partitionId))
+      }
+    }
+  }
+
+  private def nodesForOneReplica0 = {
     partitionToNodeMap.keys.foldLeft(Map.empty[Node, Set[Int]]) { (map, partition) =>
       val nodeOption = nodeForPartition(partition)
       if(nodeOption.isDefined) {

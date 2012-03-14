@@ -43,7 +43,7 @@ abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](serveRequest
       calculateHash(id).abs % numPartitions
     }
 
-    def nodesForOneReplica = {
+    def nodesForOneReplica(id: PartitionedId) = {
       partitionToNodeMap.keys.foldLeft(Map.empty[Node, Set[Int]]) { (map, partition) =>
         val nodeOption = nodeForPartition(partition)
         if(nodeOption.isDefined) {

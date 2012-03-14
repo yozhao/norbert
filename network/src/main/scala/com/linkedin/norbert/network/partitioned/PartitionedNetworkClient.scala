@@ -201,10 +201,12 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * to send the request to
    * @throws ClusterDisconnectedException thrown if the <code>PartitionedNetworkClient</code> is not connected to the cluster
    */
-  def sendRequestToOneReplica[RequestMsg, ResponseMsg](request: RequestMsg)
+  def sendRequestToOneReplica[RequestMsg, ResponseMsg](id: PartitionedId, request: RequestMsg)
   (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg]  = doIfConnected {
-    sendRequestToOneReplica((node: Node, partitions: Set[Int]) => request)(is, os)
+    sendRequestToOneReplica(id, (node: Node, partitions: Set[Int]) => request)(is, os)
   }
+
+
 
   /**
    * Sends a <code>RequestMessage</code> to one replica of the cluster. This is a broadcast intended for read operations on the cluster, like searching every partition for some data.
@@ -218,10 +220,11 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * to send the request to
    * @throws ClusterDisconnectedException thrown if the <code>PartitionedNetworkClient</code> is not connected to the cluster
    */
-  def sendRequestToOneReplica[RequestMsg, ResponseMsg](requestBuilder: (Node, Set[Int]) => RequestMsg)
-  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg]  = doIfConnected {
+  def sendRequestToOneReplica[RequestMsg, ResponseMsg](id: PartitionedId, requestBuilder: (Node, Set[Int]) => RequestMsg)
+                                                      (implicit is: InputSerializer[RequestMsg, ResponseMsg],
+                                                       os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg]  = doIfConnected {
     val nodes = loadBalancer.getOrElse(throw new ClusterDisconnectedException).fold(ex => throw ex,
-      lb => lb.nodesForOneReplica)
+      lb => lb.nodesForOneReplica(id))
 
     if (nodes.isEmpty) throw new NoNodesAvailableException("Unable to satisfy request, no node available for request")
 
@@ -233,6 +236,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
 
     new NorbertResponseIterator(nodes.size, queue)
   }
+
 
   protected def updateLoadBalancer(endpoints: Set[Endpoint]) {
     loadBalancer = if (endpoints != null && endpoints.size > 0) {

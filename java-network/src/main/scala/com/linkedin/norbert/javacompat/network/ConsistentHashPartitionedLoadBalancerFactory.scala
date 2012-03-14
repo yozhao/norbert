@@ -44,8 +44,8 @@ abstract class ConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPa
 
     def nextNode(id: PartitionedId) = loadBalancer.nextNode(id).getOrElse(null)
 
-    def nodesForOneReplica() = {
-      val map = loadBalancer.nodesForOneReplica
+    def nodesForOneReplica(id: PartitionedId) = {
+      val map = loadBalancer.nodesForOneReplica(id)
       val jMap = new java.util.HashMap[Node, JSet[java.lang.Integer]]()
       map.foreach { case (node, partitions) =>
         val set = new java.util.HashSet[java.lang.Integer]

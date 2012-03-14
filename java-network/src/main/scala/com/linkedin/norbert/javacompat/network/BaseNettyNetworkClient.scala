@@ -97,8 +97,8 @@ class NettyPartitionedNetworkClient[PartitionedId](config: NetworkClientConfig, 
 
       def nextNode(id: PartitionedId) = Option(lb.nextNode(id))
 
-      def nodesForOneReplica = {
-        val jMap = lb.nodesForOneReplica
+      def nodesForOneReplica(id: PartitionedId) = {
+        val jMap = lb.nodesForOneReplica(id)
         var sMap = Map.empty[com.linkedin.norbert.cluster.Node, Set[Int]]
 
         val entries = jMap.entrySet.iterator
@@ -145,11 +145,11 @@ class NettyPartitionedNetworkClient[PartitionedId](config: NetworkClientConfig, 
   }
 
 
-  def sendRequestToOneReplica[RequestMsg, ResponseMsg](request: RequestMsg, serializer: Serializer[RequestMsg, ResponseMsg]) =
-    underlying.sendRequestToOneReplica(request)(serializer, serializer)
+  def sendRequestToOneReplica[RequestMsg, ResponseMsg](id: PartitionedId, request: RequestMsg, serializer: Serializer[RequestMsg, ResponseMsg]) =
+    underlying.sendRequestToOneReplica(id, request)(serializer, serializer)
 
-  def sendRequestToOneReplica[RequestMsg, ResponseMsg](requestBuilder: RequestBuilder[java.lang.Integer, RequestMsg], serializer: Serializer[RequestMsg, ResponseMsg]) =
-    underlying.sendRequestToOneReplica((node: SNode, ids: Set[Int]) => {
+  def sendRequestToOneReplica[RequestMsg, ResponseMsg](id: PartitionedId, requestBuilder: RequestBuilder[java.lang.Integer, RequestMsg], serializer: Serializer[RequestMsg, ResponseMsg]) =
+    underlying.sendRequestToOneReplica(id, (node: SNode, ids: Set[Int]) => {
       val set = new java.util.HashSet[java.lang.Integer]
       ids.foreach(set.add(_))
       requestBuilder(node, set)

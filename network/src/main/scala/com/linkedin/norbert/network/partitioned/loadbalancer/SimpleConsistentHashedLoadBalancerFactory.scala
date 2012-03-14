@@ -47,8 +47,8 @@ class SimpleConsistentHashedLoadBalancerFactory[PartitionedId](numReplicas: Int,
 }
 
 class SimpleConsistentHashedLoadBalancer[PartitionedId](wheel: TreeMap[Int, Endpoint], hashFn: PartitionedId => Int) extends PartitionedLoadBalancer[PartitionedId] {
-  def nodesForOneReplica =
-    throw new UnsupportedOperationException
+
+  def nodesForOneReplica(id: PartitionedId) = throw new UnsupportedOperationException
 
   def nextNode(id: PartitionedId): Option[Node] = {
     PartitionUtil.searchWheel(wheel, hashFn(id), (e: Endpoint) => e.canServeRequests).map(_.node)

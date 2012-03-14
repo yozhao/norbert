@@ -115,7 +115,7 @@ public interface PartitionedNetworkClient<PartitionedId> extends BaseNetworkClie
    * to send the request to
    * @throws ClusterDisconnectedException thrown if the <code>PartitionedNetworkClient</code> is not connected to the cluster
    */
-  <RequestMsg, ResponseMsg> ResponseIterator<ResponseMsg> sendRequestToOneReplica(RequestBuilder<Integer, RequestMsg> requestBuilder, Serializer<RequestMsg, ResponseMsg> serializer) throws InvalidClusterException, NoNodesAvailableException, ClusterDisconnectedException;
+  <RequestMsg, ResponseMsg> ResponseIterator<ResponseMsg> sendRequestToOneReplica(PartitionedId id, RequestBuilder<Integer, RequestMsg> requestBuilder, Serializer<RequestMsg, ResponseMsg> serializer) throws InvalidClusterException, NoNodesAvailableException, ClusterDisconnectedException;
 
   /**
    * Sends a <code>Message</code> to one replica of the cluster. The <code>PartitionedNetworkClient</code>
@@ -129,6 +129,6 @@ public interface PartitionedNetworkClient<PartitionedId> extends BaseNetworkClie
    * to send the request to
    * @throws ClusterDisconnectedException thrown if the <code>PartitionedNetworkClient</code> is not connected to the cluster
    */
-  <RequestMsg, ResponseMsg> ResponseIterator<ResponseMsg> sendRequestToOneReplica(RequestMsg request, Serializer<RequestMsg, ResponseMsg> serializer) throws InvalidClusterException, NoNodesAvailableException, ClusterDisconnectedException;
+  <RequestMsg, ResponseMsg> ResponseIterator<ResponseMsg> sendRequestToOneReplica(PartitionedId id, RequestMsg request, Serializer<RequestMsg, ResponseMsg> serializer) throws InvalidClusterException, NoNodesAvailableException, ClusterDisconnectedException;
 
 }
