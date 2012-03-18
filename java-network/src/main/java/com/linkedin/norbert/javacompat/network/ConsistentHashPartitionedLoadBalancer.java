@@ -1,6 +1,5 @@
 package com.linkedin.norbert.javacompat.network;
 
-
 import com.linkedin.norbert.javacompat.cluster.Node;
 import java.util.HashMap;
 import java.util.HashSet;

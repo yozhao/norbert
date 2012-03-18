@@ -1,9 +1,9 @@
 package com.linkedin.norbert.javacompat.network;
 
+import com.linkedin.norbert.cluster.InvalidClusterException;
 
 import java.util.HashSet;
 import java.util.Set;
-
 
 public class ConsistentHashPartitionedLoadBalancerFactory<PartitionedId> implements PartitionedLoadBalancerFactory<PartitionedId>
 {

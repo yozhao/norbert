@@ -24,7 +24,7 @@ import cluster.Node
 import com.linkedin.norbert.network.common.{Endpoint => SEndpoint}
 import java.util.{Set => JSet}
 
-abstract class ConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
+abstract class MultiRingConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
   def this(numPartitions: Int) = this(numPartitions, true)
 
   val underlying = new SConsistentHashPartitionedLoadBalancerFactory[PartitionedId](serveRequestsIfPartitionMissing) {

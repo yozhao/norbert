@@ -5,7 +5,7 @@ import com.linkedin.norbert.EndpointConversions
 import EndpointConversions._
 
 class IntegerConsistentHashPartitionedLoadBalancerFactory(numPartitions: Int, serveRequestsIfPartitionMissing: Boolean)
-        extends ConsistentHashPartitionedLoadBalancerFactory[Int](numPartitions, serveRequestsIfPartitionMissing) {
+        extends MultiRingConsistentHashPartitionedLoadBalancerFactory[Int](numPartitions, serveRequestsIfPartitionMissing) {
   def this(numPartitions: Int) = this(numPartitions, true)
   def this() = this(-1, true)
 
