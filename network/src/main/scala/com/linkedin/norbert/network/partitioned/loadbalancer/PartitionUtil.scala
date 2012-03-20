@@ -46,10 +46,14 @@ object PartitionUtil {
         return Some(e.getValue)
 
       // rotate the wheel
-      e = PartitionUtil.rotateWheel(wheel, e.getKey)
+        e = PartitionUtil.rotateWheel(wheel, e.getKey)
     }
     while (e != entry)
-    return Some(e.getValue)
+    
+    if(e == entry)
+      return None
+    else
+      return Some(e.getValue)
   }
 
 }

@@ -17,4 +17,8 @@ object JavaEndpoint {
 class JavaEndpoint(endpoint: SEndpoint) extends Endpoint {
   def getNode = JavaNode(endpoint.node)
   def canServeRequests = endpoint.canServeRequests
+
+  override def hashCode() = endpoint.hashCode()
+
+  override def equals(that: Any) = endpoint.equals(that)
 }

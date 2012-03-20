@@ -118,6 +118,20 @@ public interface PartitionedNetworkClient<PartitionedId> extends BaseNetworkClie
   <RequestMsg, ResponseMsg> ResponseIterator<ResponseMsg> sendRequestToOneReplica(PartitionedId id, RequestBuilder<Integer, RequestMsg> requestBuilder, Serializer<RequestMsg, ResponseMsg> serializer) throws InvalidClusterException, NoNodesAvailableException, ClusterDisconnectedException;
 
   /**
+   * Sends a <code>Message</code> to a set of partitions in a cluster. The <code>PartitionedNetworkClient</code>
+   * will interact with the current <code>PartitionedLoadBalancer</code> to calculate which set of <code>Nodes</code>s
+   * the message must be sent to.  This method is asynchronous and will return immediately.
+   *
+   * @return a <code>ResponseIterator</code>. One response will be returned by each <code>Node</code>
+   * the message was sent to.
+   * @throws InvalidClusterException thrown if the cluster is currently in an invalid state
+   * @throws NoNodesAvailableException thrown if the <code>PartitionedLoadBalancer</code> was unable to provide a <code>Node</code>
+   * to send the request to
+   * @throws ClusterDisconnectedException thrown if the <code>PartitionedNetworkClient</code> is not connected to the cluster
+   */
+  <RequestMsg, ResponseMsg> ResponseIterator<ResponseMsg> sendRequestToPartitions(PartitionedId id, Set<Integer> partitions, RequestBuilder<Integer, RequestMsg> requestBuilder, Serializer<RequestMsg, ResponseMsg> serializer) throws InvalidClusterException, NoNodesAvailableException, ClusterDisconnectedException;
+  
+  /**
    * Sends a <code>Message</code> to one replica of the cluster. The <code>PartitionedNetworkClient</code>
    * will interact with the current <code>PartitionedLoadBalancer</code> to calculate which set of <code>Nodes</code>s
    * the message must be sent to.  This method is asynchronous and will return immediately.

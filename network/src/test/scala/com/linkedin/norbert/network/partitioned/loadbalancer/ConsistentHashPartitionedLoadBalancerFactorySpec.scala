@@ -29,7 +29,7 @@ class ConsistentHashPartitionedLoadBalancerFactorySpec extends Specification {
   class EIdDefaultLoadBalancerFactory(numPartitions: Int, serveRequestsIfPartitionMissing: Boolean) extends DefaultPartitionedLoadBalancerFactory[EId](serveRequestsIfPartitionMissing) {
     protected def calculateHash(id: EId) = HashFunctions.fnv(id)
 
-    protected def getNumPartitions(endpoints: Set[Endpoint]) = numPartitions
+    def getNumPartitions(endpoints: Set[Endpoint]) = numPartitions
   }
 
   def toEndpoints(nodes: Set[Node]) = nodes.map(n => new Endpoint {

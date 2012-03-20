@@ -82,7 +82,7 @@ object NorbertBuild extends Build {
 
   lazy val javaCluster = Project("java-cluster", file("java-cluster"), settings = buildSettings) dependsOn(cluster)
 
-  lazy val javaNetwork = Project("java-network", file("java-network"), settings = buildSettings) dependsOn(cluster, javaCluster, network)
+  lazy val javaNetwork = Project("java-network", file("java-network"), settings = buildSettings) dependsOn(cluster, javaCluster, network % "compile;test->test")
 
   lazy val examples = Project("examples", file("examples"), settings = buildSettings) dependsOn(network, javaNetwork)
 

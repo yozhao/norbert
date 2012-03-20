@@ -192,6 +192,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
   /**
    * Sends a <code>RequestMessage</code> to one replica of the cluster. This is a broadcast intended for read operations on the cluster, like searching every partition for some data.
    *
+   * @param id A partitioned id that can be used for consistent hashing purposes to ensure requests with the same id hit the same nodes in normal circumstances
    * @param request the request message to be sent
    *
    * @return a <code>ResponseIterator</code>. One response will be returned by each <code>Node</code>
@@ -210,7 +211,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
 
   /**
    * Sends a <code>RequestMessage</code> to one replica of the cluster. This is a broadcast intended for read operations on the cluster, like searching every partition for some data.
-   *
+   * @param id A partitioned id that can be used for consistent hashing purposes to ensure requests with the same id hit the same nodes in normal circumstances
    * @param requestBuilder A function to generate a request for the chosen node/partitions to send the request to
    *
    * @return a <code>ResponseIterator</code>. One response will be returned by each <code>Node</code>
@@ -237,6 +238,35 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
     new NorbertResponseIterator(nodes.size, queue)
   }
 
+  /**
+   * Sends a <code>RequestMessage</code> to a set of partitions in the cluster. This is a broadcast intended for read operations on the cluster, like searching every partition for some data.
+   *
+   * @param id A partitioned id that can be used for consistent hashing purposes to ensure requests with the same id hit the same nodes in normal circumstances
+   * @param requestBuilder A function to generate a request for the chosen node/partitions to send the request to
+   *
+   * @return a <code>ResponseIterator</code>. One response will be returned by each <code>Node</code>
+   * the message was sent to.
+   * @throws InvalidClusterException thrown if the cluster is currently in an invalid state
+   * @throws NoNodesAvailableException thrown if the <code>PartitionedLoadBalancer</code> was unable to provide a <code>Node</code>
+   * to send the request to
+   * @throws ClusterDisconnectedException thrown if the <code>PartitionedNetworkClient</code> is not connected to the cluster
+   */
+  def sendRequestToPartitions[RequestMsg, ResponseMsg](id: PartitionedId, partitions: Set[Int], requestBuilder: (Node, Set[Int]) => RequestMsg)
+                                                      (implicit is: InputSerializer[RequestMsg, ResponseMsg],
+                                                       os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg]  = doIfConnected {
+    val nodes = loadBalancer.getOrElse(throw new ClusterDisconnectedException).fold(ex => throw ex,
+      lb => lb.nodesForOneReplica(id))
+
+    if (nodes.isEmpty) throw new NoNodesAvailableException("Unable to satisfy request, no node available for request")
+
+    val queue = new ResponseQueue[ResponseMsg]
+
+    nodes.foreach { case (node, ids) =>
+      doSendRequest(PartitionedRequest(requestBuilder(node, ids), node, ids, requestBuilder, is, os, queue.+=))
+    }
+
+    new NorbertResponseIterator(nodes.size, queue)
+  }
 
   protected def updateLoadBalancer(endpoints: Set[Endpoint]) {
     loadBalancer = if (endpoints != null && endpoints.size > 0) {

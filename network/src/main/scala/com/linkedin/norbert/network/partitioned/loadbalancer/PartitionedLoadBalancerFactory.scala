@@ -35,16 +35,21 @@ trait PartitionedLoadBalancer[PartitionedId] {
    */
   def nextNode(id: PartitionedId): Option[Node]
 
-//  def nodesForPartitions(partitions: Iterable[Int]): Set[Node]
-
   /**
-   * Returns a list of nodes represents one replica of the cluster, this is used by the PartitionedNetworkClient to handle
+   * Returns a list of nodes representing one replica of the cluster, this is used by the PartitionedNetworkClient to handle
    * broadcast to one replica
    *
    * @return the <code>Nodes</code> to broadcast the next message to a replica to
    */
   def nodesForOneReplica(id: PartitionedId): Map[Node, Set[Int]]
-
+  
+  /**
+   * Calculates a mapping of nodes to partitions for broadcasting a partitioned request. Optionally uses a partitioned
+   * id for consistent hashing purposes
+   *
+   * @return the <code>Nodes</code> to broadcast the next message to a replica to
+   */
+  def nodesForPartitions(id: PartitionedId, partitions: Set[Int]): Map[Node, Set[Int]]
 }
 
 /**
@@ -62,6 +67,8 @@ trait PartitionedLoadBalancerFactory[PartitionedId] {
    */
   @throws(classOf[InvalidClusterException])
   def newLoadBalancer(nodes: Set[Endpoint]): PartitionedLoadBalancer[PartitionedId]
+
+  def getNumPartitions(endpoints: Set[Endpoint]): Int
 }
 
 /**

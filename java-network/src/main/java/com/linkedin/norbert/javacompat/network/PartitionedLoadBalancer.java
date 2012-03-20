@@ -42,4 +42,11 @@ public interface PartitionedLoadBalancer<PartitionedId> {
    */
   Map<Node, Set<Integer>> nodesForOneReplica(PartitionedId id);
 
+  /**
+   * Calculates a mapping of nodes to partitions for broadcasting a partitioned request. Optionally uses a partitioned
+   * id for consistent hashing purposes
+   *
+   * @return the <code>Nodes</code> to broadcast the next message to a replica to
+   */
+  Map<Node, Set<Integer>> nodesForPartitions(PartitionedId id, Set<Integer> partitions);
 }

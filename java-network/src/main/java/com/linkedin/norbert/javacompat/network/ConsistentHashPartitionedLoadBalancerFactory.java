@@ -9,23 +9,33 @@ public class ConsistentHashPartitionedLoadBalancerFactory<PartitionedId> impleme
 {
   private final int _bucketCount;
   private final HashFunction<String> _hashFunction;
+  private final PartitionedLoadBalancerFactory<PartitionedId> _fallThrough;
 
   public ConsistentHashPartitionedLoadBalancerFactory(int bucketCount)
   {
-    this(bucketCount, new HashFunction.MD5HashFunction());
+    this(bucketCount, new HashFunction.MD5HashFunction(), null);
   }
 
-  public ConsistentHashPartitionedLoadBalancerFactory(int bucketCount, HashFunction<String> hashFunction)
+  public ConsistentHashPartitionedLoadBalancerFactory(int bucketCount,
+                                                      PartitionedLoadBalancerFactory<PartitionedId> fallThrough)
+  {
+    this(bucketCount, new HashFunction.MD5HashFunction(), fallThrough);
+  }
+
+  public ConsistentHashPartitionedLoadBalancerFactory(int bucketCount, HashFunction<String> hashFunction,
+                                                      PartitionedLoadBalancerFactory<PartitionedId> fallThrough)
   {
     _bucketCount = bucketCount;
     _hashFunction = hashFunction;
+    _fallThrough = fallThrough;
   }
 
   @Override
   public PartitionedLoadBalancer<PartitionedId> newLoadBalancer(Set<Endpoint> endpoints)
       throws InvalidClusterException
   {
-    return new ConsistentHashPartitionedLoadBalancer<PartitionedId>(_bucketCount, _hashFunction, endpoints);
+    PartitionedLoadBalancer<PartitionedId> inner = _fallThrough == null ? null : _fallThrough.newLoadBalancer(endpoints);
+    return new ConsistentHashPartitionedLoadBalancer<PartitionedId>(_bucketCount, _hashFunction, endpoints, inner);
   }
 
   @Override

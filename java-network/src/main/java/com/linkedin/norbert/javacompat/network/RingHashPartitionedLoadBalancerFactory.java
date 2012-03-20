@@ -43,7 +43,7 @@ public class RingHashPartitionedLoadBalancerFactory implements PartitionedLoadBa
   }
 
   public RingHashPartitionedLoadBalancerFactory(int numberOfReplicas){
-      this(numberOfReplicas,new HashFunction.MD5HashFunction());
+      this(numberOfReplicas, new HashFunction.MD5HashFunction());
   }
   public PartitionedLoadBalancer<Integer> newLoadBalancer(Set<Endpoint> endpoints) throws InvalidClusterException
   {

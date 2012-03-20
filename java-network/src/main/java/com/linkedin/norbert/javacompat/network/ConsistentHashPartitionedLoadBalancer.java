@@ -12,40 +12,45 @@ import java.util.TreeMap;
 public class ConsistentHashPartitionedLoadBalancer<PartitionedId> implements PartitionedLoadBalancer<PartitionedId>
 {
   private final HashFunction<String> _hashFunction;
-  private final TreeMap<Long, Map<Node, Set<Integer>>> _routingMap;
+  private final TreeMap<Long, Map<Endpoint, Set<Integer>>> _routingMap;
+  private final PartitionedLoadBalancer<PartitionedId> _fallThrough;
 
-  ConsistentHashPartitionedLoadBalancer(int bucketCount, HashFunction<String> hashFunction, Set<Endpoint> endpoints)
+  ConsistentHashPartitionedLoadBalancer(int bucketCount,
+                                        HashFunction<String> hashFunction,
+                                        Set<Endpoint> endpoints,
+                                        PartitionedLoadBalancer<PartitionedId> fallThrough)
   {
     _hashFunction = hashFunction;
-    _routingMap = new TreeMap<Long, Map<Node, Set<Integer>>>();
+    _routingMap = new TreeMap<Long, Map<Endpoint, Set<Integer>>>();
+    _fallThrough = fallThrough;
 
     // Gather set of nodes for each partition
-    Map<Integer, Set<Node>> partitionNodes = new TreeMap<Integer, Set<Node>>();
+    Map<Integer, Set<Endpoint>> partitionNodes = new TreeMap<Integer, Set<Endpoint>>();
     for (Endpoint endpoint : endpoints)
     {
       Node node = endpoint.getNode();
       for (Integer partId : node.getPartitionIds())
       {
-        Set<Node> partNodes = partitionNodes.get(partId);
+        Set<Endpoint> partNodes = partitionNodes.get(partId);
         if (partNodes == null)
         {
-          partNodes = new HashSet<Node>();
+          partNodes = new HashSet<Endpoint>();
           partitionNodes.put(partId, partNodes);
         }
-        partNodes.add(node);
+        partNodes.add(endpoint);
       }
     }
 
     // Builds individual ring for each partitions
     int maxSize = 0;
-    Map<Integer, NavigableMap<Long, Node>> rings = new TreeMap<Integer, NavigableMap<Long, Node>>();
-    for (Map.Entry<Integer, Set<Node>> entry : partitionNodes.entrySet())
+    Map<Integer, NavigableMap<Long, Endpoint>> rings = new TreeMap<Integer, NavigableMap<Long, Endpoint>>();
+    for (Map.Entry<Integer, Set<Endpoint>> entry : partitionNodes.entrySet())
     {
       Integer partId = entry.getKey();
-      NavigableMap<Long, Node> ring = rings.get(partId);
+      NavigableMap<Long, Endpoint> ring = rings.get(partId);
       if (ring == null)
       {
-        ring = new TreeMap<Long, Node>();
+        ring = new TreeMap<Long, Endpoint>();
         rings.put(partId, ring);
       }
 
@@ -54,14 +59,14 @@ public class ConsistentHashPartitionedLoadBalancer<PartitionedId> implements Par
         maxSize = entry.getValue().size();
       }
 
-      for (Node node : entry.getValue())
+      for (Endpoint endpoint : entry.getValue())
       {
         for (int i = 0; i < bucketCount; i++)
         {
           // Use node-[node_id]-[bucket_id] as key
           // Hence for the same node, same bucket id will always hash to the same place
           // This helps to maintain consistency when the bucketCount changed
-          ring.put(hashFunction.hash(String.format("node-%d-%d", node.getId(), i)), node);
+          ring.put(hashFunction.hash(String.format("node-%d-%d", endpoint.getNode().getId(), i)), endpoint);
         }
       }
     }
@@ -72,16 +77,16 @@ public class ConsistentHashPartitionedLoadBalancer<PartitionedId> implements Par
       Long point = hashFunction.hash(String.format("ring-%d", slot));
 
       // For each generated point on the ring, gather node for each partition.
-      Map<Node, Set<Integer>> pointRoute = new HashMap<Node, Set<Integer>>();
-      for (Map.Entry<Integer, NavigableMap<Long, Node>> ringEntry : rings.entrySet())
+      Map<Endpoint, Set<Integer>> pointRoute = new HashMap<Endpoint, Set<Integer>>();
+      for (Map.Entry<Integer, NavigableMap<Long, Endpoint>> ringEntry : rings.entrySet())
       {
-        Node node = lookup(ringEntry.getValue(), point);
+        Endpoint endpoint = lookup(ringEntry.getValue(), point);
 
-        Set<Integer> partitionSet = pointRoute.get(node);
+        Set<Integer> partitionSet = pointRoute.get(endpoint);
         if (partitionSet == null)
         {
           partitionSet = new HashSet<Integer>();
-          pointRoute.put(node, partitionSet);
+          pointRoute.put(endpoint, partitionSet);
         }
         partitionSet.add(ringEntry.getKey()); // Add partition to the node
       }
@@ -90,16 +95,78 @@ public class ConsistentHashPartitionedLoadBalancer<PartitionedId> implements Par
   }
 
   @Override
-  public Node nextNode(PartitionedId partitioneId)
+  public Node nextNode(PartitionedId partitionedId)
   {
+    if(_fallThrough != null)
+      return _fallThrough.nextNode(partitionedId);
+
     // TODO: How do we choose which node to return if we don't want to throw Exception?
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Map<Node, Set<Integer>> nodesForOneReplica(PartitionedId partitioneId)
+  public Map<Node, Set<Integer>> nodesForOneReplica(PartitionedId partitionedId)
   {
-    return lookup(_routingMap, _hashFunction.hash(partitioneId.toString()));
+    Map<Endpoint, Set<Integer>> replica = lookup(_routingMap, _hashFunction.hash(partitionedId.toString()));
+    Map<Node, Set<Integer>> results = new HashMap<Node, Set<Integer>>();
+
+    Set<Integer> unsatisfiedPartitions = new HashSet<Integer>();
+    
+    // Attempt to filter out results that are not available
+    for(Map.Entry<Endpoint, Set<Integer>> entry : replica.entrySet())
+    {
+      if(entry.getKey().canServeRequests())
+      {
+        results.put(entry.getKey().getNode(), entry.getValue());
+      }
+      else
+      {
+        unsatisfiedPartitions.addAll(entry.getValue());
+      }
+    }
+    
+
+    if(unsatisfiedPartitions.size() > 0)
+    {
+      Map<Node, Set<Integer>> resolved = _fallThrough.nodesForPartitions(partitionedId, unsatisfiedPartitions);
+      for(Map.Entry<Node, Set<Integer>> entry : resolved.entrySet()) 
+      {
+        Set<Integer> partitions = results.get(entry.getKey());
+        if(partitions != null) 
+        {
+          partitions.addAll(entry.getValue());
+        }
+        else
+        {
+          results.put(entry.getKey(), entry.getValue());
+        }
+      }
+    }
+
+    return results;
+  }
+
+  @Override
+  public Map<Node, Set<Integer>> nodesForPartitions(PartitionedId partitionedId, Set<Integer> partitions) {
+    Map<Node, Set<Integer>> entireReplica = nodesForOneReplica(partitionedId);
+    
+    Map<Node, Set<Integer>> result = new HashMap<Node, Set<Integer>>();
+    for(Map.Entry<Node, Set<Integer>> entry : entireReplica.entrySet())
+    {
+      Set<Integer> localPartitions = entry.getValue();
+      Set<Integer> partitionsToUse = new HashSet<Integer>(localPartitions.size());
+      for(Integer localPartition : localPartitions)
+      {
+        if(partitions.contains(localPartition))
+          partitionsToUse.add(localPartition);
+      }
+      
+      if(!localPartitions.isEmpty())
+      {
+        result.put(entry.getKey(), localPartitions);
+      }
+    }
+    return result;
   }
 
   private <K, V> V lookup(NavigableMap<K, V> ring, K key)

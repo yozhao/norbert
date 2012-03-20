@@ -24,13 +24,14 @@ import cluster.Node
 import com.linkedin.norbert.network.common.{Endpoint => SEndpoint}
 import java.util.{Set => JSet}
 
-abstract class MultiRingConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
+abstract class MultiRingConsistentHashPartitionedLoadBalancerFactory[PartitionedId]
+(numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
   def this(numPartitions: Int) = this(numPartitions, true)
-
+  
   val underlying = new SConsistentHashPartitionedLoadBalancerFactory[PartitionedId](serveRequestsIfPartitionMissing) {
     protected def calculateHash(id: PartitionedId) = hashPartitionedId(id)
 
-    protected def getNumPartitions(endpoints: Set[SEndpoint]) = {
+    def getNumPartitions(endpoints: Set[SEndpoint]) = {
       if (numPartitions == -1) {
         endpoints.flatMap(_.getNode.getPartitionIds).size
       } else {
@@ -39,22 +40,10 @@ abstract class MultiRingConsistentHashPartitionedLoadBalancerFactory[Partitioned
     }
   }
 
-  def newLoadBalancer(endpoints: JSet[Endpoint]): PartitionedLoadBalancer[PartitionedId] = new PartitionedLoadBalancer[PartitionedId] {
-    val loadBalancer = underlying.newLoadBalancer(endpoints)
-
-    def nextNode(id: PartitionedId) = loadBalancer.nextNode(id).getOrElse(null)
-
-    def nodesForOneReplica(id: PartitionedId) = {
-      val map = loadBalancer.nodesForOneReplica(id)
-      val jMap = new java.util.HashMap[Node, JSet[java.lang.Integer]]()
-      map.foreach { case (node, partitions) =>
-        val set = new java.util.HashSet[java.lang.Integer]
-        partitions.foreach(set.add(_))
-        jMap.put(node, set)
-      }
-      jMap
-    }
-  }
+  val adapter = new ScalaLbfToJavaLbf[PartitionedId](underlying)
+  
+  def newLoadBalancer(endpoints: JSet[Endpoint]): PartitionedLoadBalancer[PartitionedId] =
+    adapter.newLoadBalancer(endpoints)
 
   protected def hashPartitionedId(id : PartitionedId) : Int
 }

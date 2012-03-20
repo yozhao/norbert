@@ -3,6 +3,9 @@ package com.linkedin.norbert.network.partitioned.loadbalancer
 import com.linkedin.norbert.network.common.Endpoint
 import java.util.TreeMap
 import com.linkedin.norbert.cluster.{Node, InvalidClusterException}
+import com.linkedin.norbert.logging.Logging
+import com.linkedin.norbert.network.client.loadbalancer.LoadBalancerHelpers
+import java.util.concurrent.atomic.AtomicInteger
 
 /*
 * Copyright 2009-2010 LinkedIn, Inc
@@ -37,7 +40,7 @@ class PartitionedConsistentHashedLoadBalancerFactory[PartitionedId](numPartition
     this(-1, slicesPerEndpoint, hashFn, endpointHashFn, serveRequestsIfPartitionMissing)
   }
 
-  protected def getNumPartitions(endpoints: Set[Endpoint]) = {
+  def getNumPartitions(endpoints: Set[Endpoint]) = {
     if (numPartitions == -1) {
       endpoints.flatMap(_.node.partitionIds).size
     } else {
@@ -61,7 +64,7 @@ class PartitionedConsistentHashedLoadBalancerFactory[PartitionedId](numPartition
         var r = 0
         while (r < numReplicas) {
           val node = endpoint.node
-          var distKey = node.id + ":" + partition + ":" + r + ":" + node.url
+          val distKey = node.id + ":" + partition + ":" + r + ":" + node.url
           wheel.put(endpointHashFn(distKey), endpoint)
           r += 1
         }
@@ -80,33 +83,49 @@ class PartitionedConsistentHashedLoadBalancer[PartitionedId](numPartitions: Int,
   import scala.collection.JavaConversions._
   val endpoints = wheels.values.flatMap(_.values).toSet
   val partitionToNodeMap = generatePartitionToNodeMap(endpoints, numPartitions, serveRequestsIfPartitionMissing)
+  val partitionIds = wheels.keySet.toSet
 
   def nodesForOneReplica(id: PartitionedId) = {
+    nodesForPartitions(id, wheels)
+  }
+
+  def nodesForPartitions(id: PartitionedId, partitions: Set[Int]) = {
+    nodesForPartitions(id, wheels.filterKeys(partitions contains _))
+  }
+  
+  private def nodesForPartitions(id: PartitionedId, wheels: Map[Int, TreeMap[Int, Endpoint]]) = {
     if (id == null) {
-      nodesForOneReplica0
+      nodesForPartitions0(partitionToNodeMap filterKeys wheels.containsKey)
     } else {
       val hash = hashFn(id)
 
       wheels.foldLeft(Map.empty[Node, Set[Int]]) { case (accumulator, (partitionId, wheel)) =>
         val endpoint = PartitionUtil.searchWheel(wheel, hash, (e: Endpoint) => e.canServeRequests)
+
         if(endpoint.isDefined) {
           val node = endpoint.get.node
           val partitions = accumulator.getOrElse(node, Set.empty[Int]) + partitionId
           accumulator + (node -> partitions)
         } else if(serveRequestsIfPartitionMissing) {
-          log.warn("Partition %s is unavailable, attempting to continue serving requests to other partitions."
+
+          log.warn("All nodes appear to be unresponsive for partition %s, selecting the original node."
             .format(partitionId))
-          accumulator
+
+          val originalEndpoint = PartitionUtil.searchWheel(wheel, hash, (e: Endpoint) => true)
+          val node = originalEndpoint.get.node
+          val partitions = accumulator.getOrElse(node, Set.empty[Int]) + partitionId
+          accumulator + (node -> partitions)
+
         } else
             throw new InvalidClusterException("Partition %s is unavailable, cannot serve requests.".format(partitionId))
       }
     }
-  }
-
-  private def nodesForOneReplica0 = {
+  }  
+  
+  private def nodesForPartitions0(partitionToNodeMap: Map[Int, (IndexedSeq[Endpoint], AtomicInteger)]) = {
     partitionToNodeMap.keys.foldLeft(Map.empty[Node, Set[Int]]) { (map, partition) =>
       val nodeOption = nodeForPartition(partition)
-      if(nodeOption.isDefined) {
+      if(nodeOption isDefined) {
         val n = nodeOption.get
         map + (n -> (map.getOrElse(n, Set.empty[Int]) + partition))
       } else if(serveRequestsIfPartitionMissing) {
@@ -116,6 +135,7 @@ class PartitionedConsistentHashedLoadBalancer[PartitionedId](numPartitions: Int,
         throw new InvalidClusterException("Partition %s is unavailable, cannot serve requests.".format(partition))
     }
   }
+  
 
   def nextNode(id: PartitionedId): Option[Node] = {
     val hash = hashFn(id)

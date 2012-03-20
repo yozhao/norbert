@@ -20,6 +20,7 @@ package loadbalancer
 
 import cluster.{Node, InvalidClusterException}
 import common.Endpoint
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * This class is intended for applications where there is a mapping from partitions -> servers able to respond to those requests. Requests are round-robined
@@ -44,6 +45,14 @@ abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](serveRequest
     }
 
     def nodesForOneReplica(id: PartitionedId) = {
+      nodesForPartitions(id, partitionToNodeMap)
+    }
+
+    def nodesForPartitions(id: PartitionedId, partitions: Set[Int]) = {
+      nodesForPartitions(id, partitionToNodeMap.filterKeys(partitions contains _))
+    }
+
+    def nodesForPartitions(id: PartitionedId, partitionToNodeMap: Map[Int, (IndexedSeq[Endpoint], AtomicInteger)]) = {
       partitionToNodeMap.keys.foldLeft(Map.empty[Node, Set[Int]]) { (map, partition) =>
         val nodeOption = nodeForPartition(partition)
         if(nodeOption.isDefined) {
@@ -58,7 +67,6 @@ abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](serveRequest
     }
   }
 
-
   /**
    * Hashes the <code>Id</code> provided. Users must implement this method. The <code>HashFunctions</code>
    * object provides an implementation of the FNV hash which may help in the implementation.
@@ -69,5 +77,5 @@ abstract class DefaultPartitionedLoadBalancerFactory[PartitionedId](serveRequest
    */
   protected def calculateHash(id: PartitionedId): Int
 
-  protected def getNumPartitions(endpoints: Set[Endpoint]): Int
+  def getNumPartitions(endpoints: Set[Endpoint]): Int
 }
