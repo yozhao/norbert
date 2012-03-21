@@ -18,32 +18,34 @@ package com.linkedin.norbert
 package javacompat
 package network
 
-import com.linkedin.norbert.network.partitioned.loadbalancer.{DefaultPartitionedLoadBalancerFactory => SConsistentHashPartitionedLoadBalancerFactory}
+import com.linkedin.norbert.network.partitioned.loadbalancer.{PartitionedConsistentHashedLoadBalancerFactory => SPartitionedConsistentHashedLoadBalancerFactory}
 import EndpointConversions._
 import cluster.Node
-import com.linkedin.norbert.network.common.{Endpoint => SEndpoint}
-import java.util.{Set => JSet}
+import java.util.{Iterator, Set}
 
-abstract class MultiRingConsistentHashPartitionedLoadBalancerFactory[PartitionedId]
-(numPartitions: Int, serveRequestsIfPartitionMissing: Boolean = true) extends PartitionedLoadBalancerFactory[PartitionedId] {
-  def this(numPartitions: Int) = this(numPartitions, true)
-  
-  val underlying = new SConsistentHashPartitionedLoadBalancerFactory[PartitionedId](serveRequestsIfPartitionMissing) {
-    protected def calculateHash(id: PartitionedId) = hashPartitionedId(id)
+/**
+ *  An adapter for a partitioned load balancer providing a consistent hash ring per partition.
+ */
+class MultiRingConsistentHashPartitionedLoadBalancerFactory[PartitionedId](numPartitions: Int,
+                                                                    slicesPerEndpoint: Int,
+                                                                    hashFunction: HashFunction[PartitionedId],
+                                                                    endpointHashFunction: HashFunction[String],
+                                                                    serveRequestsIfPartitionUnavailable: Boolean) extends PartitionedLoadBalancerFactory[PartitionedId] {
 
-    def getNumPartitions(endpoints: Set[SEndpoint]) = {
-      if (numPartitions == -1) {
-        endpoints.flatMap(_.getNode.getPartitionIds).size
-      } else {
-        numPartitions
-      }
-    }
+  def this(slicesPerEndpoint: Int, hashFunction: HashFunction[PartitionedId], endpointHashFunction: HashFunction[String], serveRequestsIfPartitionMissing: Boolean) = {
+    this(-1, slicesPerEndpoint, hashFunction, endpointHashFunction, serveRequestsIfPartitionMissing)
   }
 
-  val adapter = new ScalaLbfToJavaLbf[PartitionedId](underlying)
-  
-  def newLoadBalancer(endpoints: JSet[Endpoint]): PartitionedLoadBalancer[PartitionedId] =
-    adapter.newLoadBalancer(endpoints)
+  val underlying = new SPartitionedConsistentHashedLoadBalancerFactory[PartitionedId](
+    numPartitions,
+    slicesPerEndpoint,
+    (id: PartitionedId) => (hashFunction.hash(id) % Integer.MAX_VALUE).toInt,
+    (distKey: String) => (endpointHashFunction.hash(distKey) % Integer.MAX_VALUE).toInt,
+    serveRequestsIfPartitionUnavailable)
 
-  protected def hashPartitionedId(id : PartitionedId) : Int
+  val lbf = new ScalaLbfToJavaLbf[PartitionedId](underlying)
+
+  def newLoadBalancer(endpoints: Set[Endpoint]) = lbf.newLoadBalancer(endpoints)
+
+  def getNumPartitions(endpoints: Set[Endpoint]) = lbf.getNumPartitions(endpoints)
 }
